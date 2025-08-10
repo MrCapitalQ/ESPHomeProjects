@@ -1,0 +1,85 @@
+esphome:
+  name: lgtv-ir-blaster
+  name_add_mac_suffix: true
+  friendly_name: LG TV IR Blaster
+
+esp32:
+  board: esp32-c6-devkitc-1
+  framework:
+    type: esp-idf
+
+# Enable logging.
+logger:
+  hardware_uart: USB_SERIAL_JTAG
+
+# Enable Thread networking.
+network:
+  enable_ipv6: true
+
+openthread:
+  tlv: !secret thread_tlv
+
+# Enable Home Assistant API.
+api:
+
+# Define a remote transmitter on GPIO3.
+remote_transmitter:
+  pin: GPIO3
+  carrier_duty_percent: 50%
+
+# Define IR blaster buttons.
+button:
+  - platform: template
+    name: Power On
+    id: power_on_button
+    on_press:
+      - remote_transmitter.transmit_lg:
+          data: 0x20DF23DC # Power On
+          nbits: 32
+          repeat:
+            times: 10
+            wait_time: 15ms
+
+  - platform: template
+    name: HDMI 1
+    id: hdmi1_button
+    on_press:
+      - remote_transmitter.transmit_lg:
+          data: 0x20DF738C # HDMI 1
+          nbits: 32
+          repeat:
+            times: 10
+            wait_time: 15ms
+
+  - platform: template
+    name: HDMI 2
+    id: hdmi2_button
+    on_press:
+      - remote_transmitter.transmit_lg:
+          data: 0x20DF33CC # HDMI 2
+          nbits: 32
+          repeat:
+            times: 10
+            wait_time: 15ms
+
+  - platform: template
+    name: HDMI 3
+    id: hdmi3_button
+    on_press:
+      - remote_transmitter.transmit_lg:
+          data: 0x20DF9768 # HDMI 3
+          nbits: 32
+          repeat:
+            times: 10
+            wait_time: 15ms
+
+  - platform: template
+    name: HDMI 4
+    id: hdmi4_button
+    on_press:
+      - remote_transmitter.transmit_lg:
+          data: 0x20DF5BA4 # HDMI 4
+          nbits: 32
+          repeat:
+            times: 10
+            wait_time: 15ms
