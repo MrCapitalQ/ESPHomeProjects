@@ -1,0 +1,195 @@
+esphome:
+  name: connection-switcher
+  name_add_mac_suffix: true
+  friendly_name: Connection Switcher
+  on_boot:
+    priority: -100
+    then:
+      # Ensure switches are in default state on start.
+      - script.execute: 
+          id: "set_selected_connection_script"
+          connection_number: 0
+
+esp32:
+  board: esp32-c6-devkitc-1
+  framework:
+    type: esp-idf
+
+# Enable logging.
+logger:
+  hardware_uart: USB_SERIAL_JTAG
+
+# Enable Thread networking.
+network:
+  enable_ipv6: true
+
+openthread:
+  tlv: !secret thread_tlv
+
+# Enable Home Assistant API.
+api:
+
+# Define the onboard LED as an output.
+output:
+  - platform: ledc
+    pin: GPIO7
+    id: led_output
+
+# Define the onboard LED as a light.
+light:
+  - platform: monochromatic
+    output: led_output
+    id: onboard_led_light
+
+# Define a remote transmitter on GPIO3.
+remote_transmitter:
+  pin: GPIO3
+  carrier_duty_percent: 50%
+
+# Define selectable options.
+select:
+  - platform: template
+    name: Selected Connection
+    id: selected_connection
+    options:
+     - "No Connection"
+     - "Connection 1"
+     - "Connection 2"
+     - "Connection 3"
+    initial_option: "No Connection"
+    set_action:
+      - logger.log:
+          format: "Chosen option: %s"
+          args: ["x.c_str()"]
+      # Transmit the IR commands to change the switch states to the selected connection.
+      - if:
+          condition:
+            lambda: "return x == \"Connection 1\";"
+          then:
+            - script.execute: 
+                id: "set_selected_connection_script"
+                connection_number: 1
+          else:
+            - if:
+                condition:
+                  lambda: "return x == \"Connection 2\";"
+                then:
+                  - script.execute: 
+                      id: "set_selected_connection_script"
+                      connection_number: 2
+                else:
+                  - if:
+                      condition:
+                        lambda: "return x == \"Connection 3\";"
+                      then:
+                        - script.execute: 
+                            id: "set_selected_connection_script"
+                            connection_number: 3
+                      else:
+                        - script.execute: 
+                            id: "set_selected_connection_script"
+                            connection_number: 0
+
+script:
+  - id: set_selected_connection_script
+    mode: restart
+    parameters:
+      connection_number: int
+    then:
+      # Transmit the IR commands to change the switch states to the selected connection.
+      - if:
+          condition:
+            lambda: "return connection_number == 1;"
+          then:
+            - script.execute: 
+                id: send_ir_command
+                command: 0xFA05 # HDMI Switch 1
+            - script.wait: send_ir_command
+            - script.execute: 
+                id: send_ir_command
+                command: 0xED12 # USB Switch On
+            - script.wait: send_ir_command
+            - script.execute: 
+                id: send_ir_command
+                command: 0xFB04 # USB Switch 1
+          else:
+            - if:
+                condition:
+                  lambda: "return connection_number == 2;"
+                then:
+                  - script.execute: 
+                      id: send_ir_command
+                      command: 0xF609 # HDMI Switch 2
+                  - script.wait: send_ir_command
+                  - script.execute: 
+                      id: send_ir_command
+                      command: 0xED12 # USB Switch On
+                  - script.wait: send_ir_command
+                  - script.execute: 
+                      id: send_ir_command
+                      command: 0xF906 # USB Switch 2
+                else:
+                  - if:
+                      condition:
+                        lambda: "return connection_number == 3;"
+                      then:
+                        - script.execute: 
+                            id: send_ir_command
+                            command: 0xF807 # HDMI Switch 3
+                        - script.wait: send_ir_command
+                        - script.execute: 
+                            id: send_ir_command
+                            command: 0xED12 # USB Switch On
+                        - script.wait: send_ir_command
+                        - script.execute: 
+                            id: send_ir_command
+                            command: 0xF50A # USB Switch 3
+                      else:
+                        - script.execute: 
+                            id: send_ir_command
+                            command: 0xF708 # HDMI Switch 5 (not used)
+                        - script.wait: send_ir_command
+                        - script.execute: 
+                            id: send_ir_command
+                            command: 0xE11E # USB Switch Off
+
+      # Publish state.
+      - lambda: |-
+          if (connection_number > 0 && connection_number <= 3) {
+            id(selected_connection).publish_state("Connection " + std::to_string(connection_number));
+          } else {
+            id(selected_connection).publish_state("No Connection");
+          }
+
+      # Indicate the selected connection with the onboard LED.
+      - if:
+          condition:
+            lambda: "return connection_number == 0;"
+          then:
+            - light.turn_on:
+                id: onboard_led_light
+                transition_length: 0s
+            - light.turn_off:
+                id: onboard_led_light
+                transition_length: 1s
+          else:
+            - repeat:
+                count: !lambda "return connection_number * 2;"
+                then:
+                  - light.toggle: 
+                      id: onboard_led_light
+                      transition_length: 0.125s
+                  - delay: 0.125s
+
+  - id: send_ir_command 
+    mode: queued 
+    parameters:
+      command: int
+    then:
+      - remote_transmitter.transmit_nec:
+          address: 0x7F80
+          command: !lambda "return command;"
+          repeat:
+            times: 3
+            wait_time: 15ms
+      - delay: 0.1s
