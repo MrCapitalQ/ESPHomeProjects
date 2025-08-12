@@ -33,12 +33,16 @@ button:
     name: Power On
     id: power_on_button
     on_press:
-      - remote_transmitter.transmit_lg:
-          data: 0x20DF23DC # Power On
-          nbits: 32
-          repeat:
-            times: 10
-            wait_time: 15ms
+      # Repeat power on command as discrete button presses because it is unreliable.
+      - repeat:
+          count: 5
+          then:
+            - remote_transmitter.transmit_lg:
+                data: 0x20DF23DC # Power On
+                nbits: 32
+                repeat:
+                  times: 10
+            - delay: 0.5s
 
   - platform: template
     name: HDMI 1
@@ -49,7 +53,6 @@ button:
           nbits: 32
           repeat:
             times: 10
-            wait_time: 15ms
 
   - platform: template
     name: HDMI 2
@@ -60,7 +63,6 @@ button:
           nbits: 32
           repeat:
             times: 10
-            wait_time: 15ms
 
   - platform: template
     name: HDMI 3
@@ -71,7 +73,6 @@ button:
           nbits: 32
           repeat:
             times: 10
-            wait_time: 15ms
 
   - platform: template
     name: HDMI 4
@@ -82,4 +83,3 @@ button:
           nbits: 32
           repeat:
             times: 10
-            wait_time: 15ms
